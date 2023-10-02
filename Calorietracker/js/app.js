@@ -1,24 +1,231 @@
 class CalorieTracker {
   constructor() {
-    this._calorieLimit = 2000;
-    this._totalCalories = 0;
-    this._meals = [];
-    this._workouts = [];
+    this._calorieLimit = Storage.getCalorieLimit();
+    this._totalCalories = Storage.getTotalCalories(0);
+    this._meals = Storage.getMeals();
+    this._workouts = Storage.getWorkouts();
+
+    this._displayCaloriesLimit();
+    this._displayCaloriesTotal();
+    this._displayCaloriesConsumed();
+    this._displayCaloriesBurned();
+    this._displayCaloriesRemaining();
+    this._displayCaloriesProgress();
+
+    document.getElementById('limit').value = this._calorieLimit;
+
   }
+
+  // Public Methods/API //
 
   addMeal(meal) {
     this._meals.push(meal);
     // we want to pusn meal into _meals
     this._totalCalories += meal.calories;
+     // updating in local storage
+     Storage.updateTotalCalories(this._totalCalories);
+     Storage.saveMeal(meal);
+    this._displayNewMeal(meal);
+    this._render();
     // += means totalCalories = meal.calories
   }
 
   addWorkout(workout) {
     this._workouts.push(workout);
     this._totalCalories -= workout.calories;
+     // updating in local storage
+     Storage.updateTotalCalories(this._totalCalories);
+     Storage.saveWorkout(workout);
+    this._displayNewWorkout(workout);
     // we are burning caloires here -
+    this._render();
+  }
+
+  removeMeal(id) {
+    // basically we are looping through. We want where meal.id is equal to the id that is passed in. 
+    const index = this._meals.findIndex((meal) => meal.id === id);
+
+    // We check to make sure it is not equal to -1
+    if (index !== -1 ) {
+      const meal = this._meals[index];
+      // take away calorie meal
+      this._totalCalories -= meal.claories;
+       // updating in local storage
+       Storage.updateTotalCalories(this._totalCalories);
+      this._meals.splice(index, 1);
+      // removing from local storage
+      Storage.removeMeal(id);
+      this._render();
+    }
+  }
+
+
+  removeWorkout(id) {
+    // basically we are looping through. We want where meal.id is equal to the id that is passed in. 
+    const index = this._workouts.findIndex((workout) => workout.id === id);
+
+    // We check to make sure it is not equal to -1
+    if (index !== -1 ) {
+      const workout = this._workouts[index];
+      // take away calorie meal
+      this._totalCalories += workout.claories;
+       // updating in local storage
+       Storage.updateTotalCalories(this._totalCalories);
+      this._workouts.splice(index, 1);
+      // removing from local storage
+      Storage.removeWorkout(id);
+      this._render();
+    }
+  }
+   
+  // this helps to reset the whole thing
+  reset() {
+    this._totalCalories = 0;
+    this._meals = [];
+    this._workouts = [];
+    Storage.clearAll();
+    this._render();
+  }
+
+  setLimit(calorieLimit) {
+    this._calorieLimit = calorieLimit;
+    // saving to local Storage
+    Storage.setCalorieLimit(calorieLimit);
+    this._displayCaloriesLimit();
+    this._render()
+  }
+
+  loadItems() {
+    this._meals.forEach((meal) => this._displayNewMeal(meal));
+    this._workouts.forEach((workout) => this._displayNewWorkout(workout));
+  }
+
+
+
+  // Private Methods //
+_displayCaloriesTotal() {
+  const totalCaloriesEl = document.getElementById('calories-total');
+  totalCaloriesEl.innerHTML = this._totalCalories;
+}
+_displayCaloriesLimit() {
+  const calorieLimitEl = document.getElementById('calories-limit');
+  calorieLimitEl.innerHTML = this._calorieLimit;
+}
+
+_displayCaloriesConsumed() {
+  const caloriesConsumedEl = document.getElementById('calories-consumed');
+
+  const consumed = this._meals.reduce((total, meal) => total + meal.calories, 0);
+
+  caloriesConsumedEl.innerHTML = consumed;
+}
+
+_displayCaloriesBurned() {
+  const caloriesBurnedEl = document.getElementById('calories-burned');
+
+  const burned = this._workouts.reduce((total, workout) => total + workout.calories, 0);
+
+  caloriesBurnedEl.innerHTML = burned;
+}
+// loops throght meals and add 1st , 2nd meals and respectively
+// that will give the consumed meal
+
+_displayCaloriesRemaining() {
+  const caloriesRemainingEl = document.getElementById('calories-remaining');
+  const progressEl = document.getElementById('calorie-progress');
+
+  const remaining = this._calorieLimit - this._totalCalories;
+
+  caloriesRemainingEl.innerHTML = remaining;
+
+  if (remaining <= 0) {
+    caloriesRemainingEl.parentElement.parentElement.classList.remove('bg-light');
+    caloriesRemainingEl.parentElement.parentElement.classList.add('bg-danger');
+    progressEl.classList.remove('bg-success');
+    progressEl.classList.add('bg-danger');
+  } else {
+    caloriesRemainingEl.parentElement.parentElement.classList.remove('bg-danger');
+    caloriesRemainingEl.parentElement.parentElement.classList.add('bg-light');
+    // when it is not exceeding the limit
+    progressEl.classList.remove('bg-danger');
+    progressEl.classList.add('bg-success');
   }
 }
+
+_displayCaloriesProgress() {
+  const progressEl = document.getElementById('calorie-progress');
+  const precentage = (this._totalCalories / this._calorieLimit) * 100;
+  const width = Math.min(precentage, 100);
+  progressEl.style.width = `${width}%`;
+}
+
+_displayNewMeal(meal) {
+  const mealsEl = document.getElementById('meal-items');
+  const mealEl = document.createElement('div');
+  mealEl.classList.add('card', 'my-2');
+  mealEl.setAttribute('data-id', meal.id);
+  mealEl.innerHTML = `
+  <div class="card-body">
+  <div class="d-flex align-items-center justify-content-between">
+    <h4 class="mx-1">${meal.name}</h4>
+    <div
+      class="fs-1 bg-primary text-white text-center rounded-2 px-2 px-sm-5"
+    >
+    ${meal.calories}
+    </div>
+    <button class="delete btn btn-danger btn-sm mx-2">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+</div>
+  `; 
+
+  mealsEl.appendChild(mealEl);
+  // adding it to DOM
+
+}
+
+_displayNewWorkout(workout) {
+  const workoutsEl = document.getElementById('workout-items');
+  const workoutEl = document.createElement('div');
+  workoutEl.classList.add('card', 'my-2');
+  workoutEl.setAttribute('data-id', workout.id);
+  workoutEl.innerHTML = `
+  <div class="card-body">
+  <div class="d-flex align-items-center justify-content-between">
+    <h4 class="mx-1">${workout.name}</h4>
+    <div
+      class="fs-1 bg-secondary text-white text-center rounded-2 px-2 px-sm-5"
+    >
+    ${workout.calories}
+    </div>
+    <button class="delete btn btn-danger btn-sm mx-2">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+</div>
+  `; 
+
+  workoutsEl.appendChild(workoutEl);
+  // adding it to DOM
+
+}
+
+
+
+_render() {
+  this._displayCaloriesTotal();
+  this._displayCaloriesConsumed();
+  this._displayCaloriesBurned();
+  // render once we add meal
+  this._displayCaloriesRemaining();
+  this._displayCaloriesProgress();
+
+
+  // need to do more calculation of the calories remaining
+}
+}
+
 
 class Meal {
   constructor(name, calories) {
@@ -37,14 +244,252 @@ class Workout {
   }
 }
 
-const tracker = new CalorieTracker();
+class Storage {
+  static getCalorieLimit(defaultLimit = 2000) {
+    let calorieLimit;
+    if (localStorage.getItem('calorieLimit') === null) {
+      calorieLimit = defaultLimit;
+    } else {
+      calorieLimit = +localStorage.getItem('calorieLimit')
+    }
+    return calorieLimit;
+  } 
 
-const breakfast = new Meal('Breakfast', 400); 
-tracker.addMeal(breakfast);
+  static setCalorieLimit(calorieLimit) {
+    localStorage.setItem('calorieLimit', calorieLimit);
+  }
 
-const run = new Workout('Morning Run', 300);
-tracker.addWorkout(run);
+  static getTotalCalories(defaultCalories = 0) {
+    let totalCalories;
+    if (localStorage.getItem('totalCalories') === null) {
+      totalCalories = defaultCalories;
+    } else {
+      totalCalories = +localStorage.getItem('totalCalories')
+    }
+    return totalCalories;
+  }
 
-console.log(tracker._meals);
-console.log(tracker._workouts);
-console.log(tracker._totalCalories);
+  static updateTotalCalories(calories) {
+    localStorage.setItem('totalCalories', calories);
+  }
+
+  static getMeals() {
+    let meals;
+    if (localStorage.getItem('meals') === null) {
+      meals = [];
+    } else {
+      // we don't want to parse into a number. Return as string
+      meals = JSON.parse(localStorage.getItem('meals'))
+    }
+    return meals;
+  }
+
+  static saveMeal(meal) {
+    const meals = Storage.getMeals();
+    // put back in local storage
+    meals.push(meal);
+    localStorage.setItem('meals', JSON.stringify(meals));
+  }
+
+  static removeMeal(id) {
+    // getting meals from local storage
+    const meals = Storage.getMeals();
+    // looping through 
+    meals.forEach((meal, index) => {
+      // check to see if meal id is = id that is passed in
+      if (meal.id === id) {
+        // we want to splice at index and take away 1
+        meals.splice(index, 1);
+      }
+    }); 
+
+    // we are going outside of the For Each and resave to local storage without that meal
+    localStorage.setItem('meals', JSON.stringify(meals));
+  }
+
+  static getWorkouts() {
+    let workouts;
+    if (localStorage.getItem('workouts') === null) {
+      workouts = [];
+    } else {
+      // we don't want to parse into a number. Return as string
+      workouts = JSON.parse(localStorage.getItem('workouts'))
+    }
+    return workouts;
+  }
+
+  static saveWorkout(workout) {
+    // getting the workouts from storage
+    const workouts = Storage.getWorkouts();
+    // put back in local storage
+    workouts.push(workout);
+    // resaving it
+    localStorage.setItem('workouts', JSON.stringify(workouts));
+  }
+
+  // Removing workout from local Storage, so that when it is loaded it does not stay in local Storage
+  static removeWorkout(id) {
+    // getting meals from local storage
+    const workouts = Storage.getWorkouts();
+    // looping through 
+    workouts.forEach((workout, index) => {
+      // check to see if meal id is = id that is passed in
+      if (workout.id === id) {
+        // we want to splice at index and take away 1
+        workouts.splice(index, 1);
+      }
+    }); 
+
+    // we are going outside of the For Each and resave to local storage without that meal
+    localStorage.setItem('workouts', JSON.stringify(workouts));
+  }
+
+  // Removing seprate categories instead of clearing the whole thing
+  static clearAll() {
+    localStorage.removeItem('totalCalories');
+    localStorage.removeItem('meals');
+    localStorage.removeItem('workouts');
+
+    // if we want to clear the limit, then we can use:
+    // localStorage.clear();
+  }
+}
+
+class App {
+  constructor() {
+    this._tracker = new CalorieTracker();
+    this._loadEventListeners();
+    this._tracker.loadItems();
+  }
+
+  _loadEventListeners() {
+
+
+    document.getElementById('meal-form').addEventListener('submit', this._newItem.bind(this, 'meal'));
+
+    document.getElementById('workout-form').addEventListener('submit', this._newItem.bind(this, 'workout'));
+
+    document.getElementById('meal-items')
+      .addEventListener('click', this._removeItem.bind(this, 'meal'))
+
+    document.getElementById('workout-items')
+      .addEventListener('click', this._removeItem.bind(this, 'workout'))
+
+    document.getElementById('filter-meals')
+      .addEventListener('keyup', this._filterItems.bind(this, 'meal'))
+
+    document.getElementById('filter-workouts')
+      .addEventListener('keyup', this._filterItems.bind(this, 'workout'));
+
+    document.getElementById('reset')
+      .addEventListener('click', this._reset.bind(this));
+
+    document.getElementById('limit-form')
+      .addEventListener('submit', this._setLimit.bind(this));
+  }
+
+  _newItem(type, e) {
+    e.preventDefault();
+
+    const name = document.getElementById(`${type}-name`);
+    const calories = document.getElementById(`${type}-calories`);
+
+    // Validate inputs
+    if (name.value === '' || calories.value === '') {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    if (type === 'meal') {
+      const meal = new Meal(name.value, +calories.value);
+      this._tracker.addMeal(meal);
+    } else {
+      const workout = new Workout(name.value, +calories.value);
+      this._tracker.addWorkout(workout);
+    }
+
+
+    name.value = '';
+    calories.value = '';
+
+    const collapseItem = document.getElementById(`collapse-${type}`);
+    const bsCollapse = new bootstrap.Collapse(collapseItem, {
+      toogle: true
+    });
+
+
+  
+  }
+
+  _removeItem(type, e) {
+    if (
+      e.target.classList.contains('delete') ||
+      e.target.classList.contains('fa-xmark')
+    ) {
+      if (confirm('Are you sure?')) {
+        const id = e.target.closest('.card').getAttribute('data-id');
+      //  id needs to be passed 
+
+      type === 'meal'
+        ? this._tracker.removeMeal(id)
+        // Then ? 
+        // Else :
+        : this._tracker.removeWorkout(id);
+
+
+        e.target.closest('.card').remove();
+      }
+    }
+  }
+
+
+  _filterItems(type, e) {
+    const text = e.target.value.toLowerCase();
+    document.querySelectorAll(`#${type}-items .card`).forEach((item) => {
+      const name = item.firstElementChild.firstElementChild.textContent;
+
+      // if it is not = -1, check to see if it is a match
+      // if it is a match we want to display it
+
+      // filters item when typed 
+      if (name.toLowerCase().indexOf(text) !== -1) {
+        item.style.display = 'block';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  }
+
+  _reset() {
+    this._tracker.reset();
+    document.getElementById('meal-items').innerHTML = '';
+    document.getElementById('workout-items').innerHTML = '';
+    document.getElementById('filter-meals').value = '';
+    document.getElementById('filter-workouts').value = '';
+
+  }
+
+  _setLimit(e) {
+    e.preventDefault();
+
+    const limit = document.getElementById('limit');
+
+    if (limit.value === '') {
+      alert('Please add a limit');
+      return;
+    }
+
+    // add the data as a number
+    this._tracker.setLimit(+limit.value);
+    limit.value = '';
+
+    const modalEl = document.getElementById('limit-modal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    modal.hide();
+
+  }
+}
+  
+
+
+const app = new App();
